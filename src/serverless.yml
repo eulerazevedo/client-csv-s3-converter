@@ -1,0 +1,22 @@
+service: node-serverless-lambda-api
+
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+
+package:
+  excludeDevDependencies: true
+  individually: true
+  
+plugins:
+  - serverless-offline
+  - serverless-webpack
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+        - http:
+            path: /hi
+            method: GET
