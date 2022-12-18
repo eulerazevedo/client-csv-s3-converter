@@ -1,22 +1,55 @@
-service: node-serverless-lambda-api
-
+service: prospect-clients-service
 
 provider:
   name: aws
-  runtime: nodejs12.x
+  runtime: nodejs14.x
 
 package:
   excludeDevDependencies: true
-  individually: true
   
 plugins:
   - serverless-offline
   - serverless-webpack
+  - serverless-dotenv-plugin
+
+custom:
+  webpack:
+    includeModules: true
+    webpackConfig: ./webpack.config.js
 
 functions:
-  hello:
-    handler: handler.hello
+  parsePropectClientBase:
+    timeout: 30
+    handler: handler.parsePropectClientBase
     events:
         - http:
-            path: /hi
-            method: GET
+            path: /prospect
+            method: POST
+
+resources:
+  Resources:
+    ProspectClientBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: serverless-prospectclientbucket
+
+    UploadFilePolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: UploadObjects
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Sid: LambdaPutObjects
+              Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectTagging
+              Resource: 
+                Fn::Join:
+                  - ""
+                  - - "arn:aws:s3:::"
+                    - Ref: ProspectClientBucket
+                    - "/*"
+        Roles:
+          - serverless-prospectclientbucket-role
