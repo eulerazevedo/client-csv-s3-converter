@@ -1,5 +1,4 @@
-import * as fs from 'fs';
-import { tierRuleByAccess } from './utils/utils'
+import { tierRuleByAccess } from './utils/utils';
 import multipart from 'aws-lambda-multipart-parser';
 const AWS = require('aws-sdk');
 
@@ -9,8 +8,8 @@ export async function parsePropectClientBase(event) {
   const result = fileData.split('\n');
 
   const header = `${result.shift().replace(/\r/g, '')};Tier`;
-  const newDataArr = [] 
-  for (const data of result) { 
+  const newDataArr = [];
+  for (const data of result) {
     if (data) {
       const accessNumber = Number(data.split(';')[1].replace(/\./g, ''));
       const tier = tierRuleByAccess(accessNumber);
@@ -20,55 +19,41 @@ export async function parsePropectClientBase(event) {
   newDataArr.unshift(header);
 
   const date = new Date();
-  const dateTime = `${date.getUTCMonth()+1}_${date.getUTCFullYear()}_${date.getTime()}`
+  const dateTime = `${date.getUTCMonth() + 1}_${date.getUTCFullYear()}_${date.getTime()}`;
   const filename = `PROSPECT_${dateTime}`;
   const savedCSVFileName = `${filename}.csv`;
 
-  const uploadFile = (fileName) => {
-    const fileContent = fs.readFileSync(fileName);
+  const fileContent = newDataArr.join('\n');
 
-    const params = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: fileName,
-      Body: fileContent
-    };
-
-    const s3 = new AWS.S3({ 
-      apiVersion: '2006-03-01',
-      accessKeyId: process.env.ACCESS_KEY_ID,
-      secretAccessKey: process.env.SECRET_ACCESS_KEY,
-      region: process.env.REGION
-    });
-
-    s3.putObject(params, function(err, data) {
-      if (err) {
-        throw err;
-      }
-    }).promise();
+  const params = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: savedCSVFileName,
+    Body: fileContent,
   };
 
-  const writable = fs.createWriteStream(`./${filename}.csv`);
-  const headerData = newDataArr.shift();
-  writable.write(`${headerData}\n`);
+  const s3 = new AWS.S3({
+    apiVersion: '2006-03-01',
+    accessKeyId: process.env.ACCESS_KEY_ID,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+    region: process.env.REGION,
+  });
 
-  newDataArr.forEach((row) => {
-    writable.write(`${row}\n`);
-  });
-  
-  writable.end(function () {
-    uploadFile(savedCSVFileName);
-  });
+  try {
+    await s3.putObject(params).promise();
+  } catch (err) {
+    throw err;
+  }
 
   const responseS3linkURL = `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${savedCSVFileName}`;
 
   return {
     statusCode: 200,
     headers: {
-      "Access-Control-Allow-Origin": "*"
+      'Access-Control-Allow-Origin': '*',
     },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       success: true,
-      url: responseS3linkURL
+      url: responseS3linkURL,
     }),
   };
 }
